@@ -19,9 +19,10 @@
 /* Includes ------------------------------------------------------------------*/
 #include "main.h"
 
+#include <stdio.h>
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
-
+#include "ring_buffer.h"
 /* USER CODE END Includes */
 
 /* Private typedef -----------------------------------------------------------*/
@@ -45,6 +46,10 @@ UART_HandleTypeDef huart2;
 /* USER CODE BEGIN PV */
 
 /* USER CODE END PV */
+uint8_t rx_buffer[16];
+ring_buffer_t ring_buffer_uart_rx;
+
+uint8_t rx_data;
 
 /* Private function prototypes -----------------------------------------------*/
 void SystemClock_Config(void);
@@ -56,7 +61,22 @@ static void MX_USART2_UART_Init(void);
 
 /* Private user code ---------------------------------------------------------*/
 /* USER CODE BEGIN 0 */
+int _write(int file, char *ptr, int len)
+{
+  HAL_UART_Transmit(&huart2, (uint8_t *)ptr, len, HAL_MAX_DELAY);
+  return len;
+}
+/**
+  * @brief  Tx Half Transfer completed callback.
+  * @param  huart UART handle.
+  * @retval None
+  */
+void HAL_UART_RxCpltCallback(UART_HandleTypeDef *huart)
+{
+	ring_buffer_put(&ring_buffer_uart_rx, rx_data);
+	HAL_UART_Receive_IT(&huart2, &rx_data, 1);
 
+}
 /* USER CODE END 0 */
 
 /**
@@ -91,11 +111,29 @@ int main(void)
   /* USER CODE BEGIN 2 */
 
   /* USER CODE END 2 */
+  ring_buffer_init(&ring_buffer_uart_rx, rx_buffer, 16);
+
+  HAL_UART_Receive_IT(&huart2, &rx_data, 1);
 
   /* Infinite loop */
   /* USER CODE BEGIN WHILE */
   while (1)
   {
+	  uint16_t size = ring_buffer_size(&ring_buffer_uart_rx);
+	  if(size != 0){
+		  uint8_t rx_message[size + 1];
+		  for(uint16_t idx = 0; idx < size; idx++){
+
+			  ring_buffer_get(&ring_buffer_uart_rx, &rx_message[idx]);
+
+		  }
+		  rx_message[size] = 0;
+
+		  printf("Rec: %s\r\n", rx_message);
+	  }
+	  HAL_Delay(1000);
+
+
     /* USER CODE END WHILE */
 
     /* USER CODE BEGIN 3 */
